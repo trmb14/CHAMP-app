@@ -2,8 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ||
-  // fallback: local dev IP when no .env is set, production Railway URL otherwise
-  (__DEV__ ? 'http://192.168.2.27:3000/api' : 'https://champ-backend.up.railway.app/api');
+  (__DEV__ ? 'http://192.168.2.27:3000/api' : 'https://champ-app-production.up.railway.app/api');
 
 const api = axios.create({
   baseURL: BASE_URL,
