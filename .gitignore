@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Expo
+.expo/
+
+# Build outputs
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/

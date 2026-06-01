@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npx expo *)",
+      "Bash(node -e ' *)",
+      "Bash(pkill -f \"nodemon src/server.js\")",
+      "Bash(pkill -f \"expo start\")",
+      "Bash(npm run *)",
+      "Bash(echo \"Backend PID: $!\")",
+      "Bash(echo \"Expo PID: $!\")",
+      "Bash(xargs cat)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.pesptiuyprvwmuirqsmp:Basketball14191!@aws-0-ca-central-1.pooler.supabase.com:5432/postgres\" npx knex *)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:Basketball14191!@db.pesptiuyprvwmuirqsmp.supabase.co:5432/postgres\" npx knex *)",
+      "Bash(node src/server.js)",
+      "Bash(curl -s http://localhost:3000/api/auth/me)",
+      "Bash(echo \"PID: $!\")"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+.expo/
+dist/
+build/
+.env
+.env.local
+.env.production
+*.log
+npm-debug.log*
+.DS_Store
+ios/
+android/
