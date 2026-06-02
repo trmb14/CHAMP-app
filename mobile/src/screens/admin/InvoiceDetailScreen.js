@@ -55,7 +55,7 @@ export default function InvoiceDetailScreen() {
     // Download PDF to local file then open share sheet (allows Mail attachment)
     setDownloading(true);
     try {
-      const filename = `${invoice.invoice_number || invoiceId}.pdf`;
+      const filename = `CHAMP-${invoice.invoice_number || invoiceId}.pdf`;
       const localUri = FileSystem.cacheDirectory + filename;
       if (invoice.pdf_url.startsWith('data:')) {
         const base64 = invoice.pdf_url.split(',')[1];
@@ -84,7 +84,7 @@ export default function InvoiceDetailScreen() {
     if (!invoice?.pdf_url) return;
     setDownloading(true);
     try {
-      const filename = `${invoice.invoice_number || invoiceId}.pdf`;
+      const filename = `CHAMP-${invoice.invoice_number || invoiceId}.pdf`;
       const localUri = FileSystem.cacheDirectory + filename;
       if (invoice.pdf_url.startsWith('data:')) {
         const base64 = invoice.pdf_url.split(',')[1];

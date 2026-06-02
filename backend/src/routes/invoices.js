@@ -245,7 +245,7 @@ router.post('/generate', requireAdmin, async (req, res, next) => {
       lineItems: lineItemsData,
     });
 
-    const filename = `${invoice_number}.pdf`;
+    const filename = `CHAMP-${invoice_number}.pdf`;
     const pdf_url = await uploadPDF(pdfBuffer, filename, 'invoices');
     await db('invoices').where({ id: invoice.id }).update({ pdf_url });
     await db('shifts').whereIn('id', shifts.map(s => s.id)).update({ status: 'invoiced', updated_at: new Date() });
@@ -321,7 +321,7 @@ router.post('/generate-all', requireAdmin, async (req, res, next) => {
           client, lineItems: lineItemsData,
         });
 
-        const filename = `${invoice_number}.pdf`;
+        const filename = `CHAMP-${invoice_number}.pdf`;
         const pdf_url = await uploadPDF(pdfBuffer, filename, 'invoices');
         await db('invoices').where({ id: invoice.id }).update({ pdf_url });
         await db('shifts').whereIn('id', shifts.map(s => s.id)).update({ status: 'invoiced', updated_at: new Date() });
