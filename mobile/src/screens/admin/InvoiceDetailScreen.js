@@ -52,13 +52,31 @@ export default function InvoiceDetailScreen() {
 
   async function handleEmailInvoice() {
     if (!invoice?.pdf_url) return;
-    const to = encodeURIComponent(invoice.billing_email || '');
-    const subject = encodeURIComponent(`Invoice ${invoice.invoice_number}`);
-    const body = encodeURIComponent(`Please find your invoice ${invoice.invoice_number} attached.\n\nView PDF: ${invoice.pdf_url}`);
+    // Download PDF to local file then open share sheet (allows Mail attachment)
+    setDownloading(true);
     try {
-      await Linking.openURL(`mailto:${to}?subject=${subject}&body=${body}`);
-    } catch {
-      Alert.alert('Error', 'Could not open mail app.');
+      const filename = `${invoice.invoice_number || invoiceId}.pdf`;
+      const localUri = FileSystem.cacheDirectory + filename;
+      if (invoice.pdf_url.startsWith('data:')) {
+        const base64 = invoice.pdf_url.split(',')[1];
+        await FileSystem.writeAsStringAsync(localUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      } else {
+        await FileSystem.downloadAsync(invoice.pdf_url, localUri);
+      }
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(localUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Email Invoice ${invoice.invoice_number}`,
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Not Available', 'Sharing is not available on this device.');
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setDownloading(false);
     }
   }
 

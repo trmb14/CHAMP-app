@@ -1,5 +1,9 @@
 const PDFDocument = require('pdfkit');
 const { format } = require('date-fns');
+const path = require('path');
+const fs = require('fs');
+
+const SIGNATURE_PATH = path.join(__dirname, '../../assets/signature.png');
 
 const NAVY = '#1F4E79';
 const GREEN = '#7AA84A';
@@ -202,58 +206,58 @@ async function generateInvoicePDF(data) {
     doc.fillColor(GREEN).rect(165, 56, 8, 22).fill();
     doc.fillColor(GREEN).rect(157, 64, 24, 8).fill();
 
-    // Invoice details top right (safe date parsing with T12:00:00)
+    // Invoice details top right
     const invoiceDateStr = invoice.invoice_date
       ? format(new Date(invoice.invoice_date + 'T12:00:00'), 'MMMM d, yyyy')
       : format(new Date(), 'MMMM d, yyyy');
-    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(12)
+    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(13)
       .text(`Invoice No: ${invoice.invoice_number}`, 350, 50, { width: pageWidth - 310, align: 'right' });
-    doc.font('Helvetica').fontSize(11)
+    doc.font('Helvetica').fontSize(12)
       .text(`Invoice Date: ${invoiceDateStr}`, 350, 68, { width: pageWidth - 310, align: 'right' });
 
     let y = 128;
 
     // INVOICE title
-    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(18).text('INVOICE', 40, y);
-    y += 28;
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(20).text('INVOICE', 40, y);
+    y += 30;
 
-    // Client block — 12pt text, taller box
-    doc.rect(40, y, 260, 132).fill(LIGHT_BLUE);
-    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(10).text('BILL TO', 52, y + 10);
-    doc.fillColor('#000000').font('Helvetica-Bold').fontSize(14).text(client.name, 52, y + 26);
-    doc.font('Helvetica').fontSize(12)
-      .text(client.address || '', 52, y + 46)
-      .text(`${client.city}, ${client.province}  ${client.postal_code || ''}`, 52, y + 62)
-      .text(`Tel: ${client.phone || ''}`, 52, y + 78)
-      .text(client.fax ? `Fax: ${client.fax}` : '', 52, y + 94)
-      .text(client.contact_name ? `Attn: ${client.contact_name}` : '', 52, y + 110);
+    // Client block
+    doc.rect(40, y, 260, 138).fill(LIGHT_BLUE);
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(11).text('BILL TO', 52, y + 10);
+    doc.fillColor('#000000').font('Helvetica-Bold').fontSize(15).text(client.name, 52, y + 27);
+    doc.font('Helvetica').fontSize(13)
+      .text(client.address || '', 52, y + 48)
+      .text(`${client.city}, ${client.province}  ${client.postal_code || ''}`, 52, y + 65)
+      .text(`Tel: ${client.phone || ''}`, 52, y + 82)
+      .text(client.fax ? `Fax: ${client.fax}` : '', 52, y + 99)
+      .text(client.contact_name ? `Attn: ${client.contact_name}` : '', 52, y + 116);
 
     // Service period (right side)
-    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(10)
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(11)
       .text('Service Period', doc.page.width - 210, y + 10);
-    doc.fillColor('#000000').font('Helvetica').fontSize(12)
-      .text(`${format(new Date(invoice.week_start + 'T12:00:00'), 'MMM d, yyyy')}`, doc.page.width - 210, y + 28)
-      .text(`to ${format(new Date(invoice.week_end + 'T12:00:00'), 'MMM d, yyyy')}`, doc.page.width - 210, y + 46);
+    doc.fillColor('#000000').font('Helvetica').fontSize(13)
+      .text(`${format(new Date(invoice.week_start + 'T12:00:00'), 'MMM d, yyyy')}`, doc.page.width - 210, y + 29)
+      .text(`to ${format(new Date(invoice.week_end + 'T12:00:00'), 'MMM d, yyyy')}`, doc.page.width - 210, y + 48);
 
-    y += 148;
+    y += 154;
 
-    // Line items table — 11pt headers and rows
+    // Line items table — 12pt headers and rows
     const tCols = [40, 110, 200, 272, 344, 412, 476, 572];
     const tHeaders = ['Date', 'Shift Hours', 'Position', 'Time In', 'Time Out', 'Rate', 'Total'];
 
-    doc.rect(40, y, pageWidth, 26).fill(NAVY);
-    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(11);
+    doc.rect(40, y, pageWidth, 28).fill(NAVY);
+    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(12);
     tHeaders.forEach((h, i) => {
-      doc.text(h, tCols[i] + 4, y + 8, { width: tCols[i + 1] - tCols[i] - 8 });
+      doc.text(h, tCols[i] + 4, y + 9, { width: tCols[i + 1] - tCols[i] - 8 });
     });
-    y += 26;
+    y += 28;
 
     let rowIndex = 0;
     for (const item of lineItems) {
       const rowColor = rowIndex % 2 === 0 ? WHITE : '#EEF3FB';
-      doc.rect(40, y, pageWidth, 24).fill(rowColor);
+      doc.rect(40, y, pageWidth, 26).fill(rowColor);
       const textColor = item.is_statutory ? '#7B2D00' : '#000000';
-      doc.fillColor(textColor).font('Helvetica').fontSize(11);
+      doc.fillColor(textColor).font('Helvetica').fontSize(12);
       const rowData = [
         format(new Date(item.date_of_service + 'T12:00:00'), 'MMM d, yyyy'),
         `${parseFloat(item.shift_hours).toFixed(1)} hrs${item.is_statutory ? '*' : ''}`,
@@ -264,58 +268,67 @@ async function generateInvoicePDF(data) {
         formatCurrency(item.total),
       ];
       rowData.forEach((d, i) => {
-        doc.text(d, tCols[i] + 4, y + 7, { width: tCols[i + 1] - tCols[i] - 8 });
+        doc.text(d, tCols[i] + 4, y + 8, { width: tCols[i + 1] - tCols[i] - 8 });
       });
-      y += 24;
+      y += 26;
       rowIndex++;
     }
 
-    y += 22;
+    y += 24;
 
-    // Totals — 12pt Sub-Total and HST, 14pt TOTAL
-    const totalsX = 370;
+    // Totals — 13pt Sub-Total and HST, 16pt TOTAL
+    const totalsX = 360;
     const totalsW = pageWidth - (totalsX - 40);
 
-    doc.rect(totalsX, y, totalsW, 28).fill(LIGHT_BLUE);
-    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(12)
-      .text('Sub-Total', totalsX + 10, y + 8)
-      .text(formatCurrency(invoice.subtotal), totalsX + totalsW - 90, y + 8);
+    doc.rect(totalsX, y, totalsW, 30).fill(LIGHT_BLUE);
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(13)
+      .text('Sub-Total', totalsX + 10, y + 9)
+      .text(formatCurrency(invoice.subtotal), totalsX + totalsW - 95, y + 9);
 
-    doc.rect(totalsX, y + 28, totalsW, 28).fill(WHITE);
-    doc.fillColor('#000000').font('Helvetica').fontSize(12)
-      .text('HST (13%)', totalsX + 10, y + 36)
-      .text(formatCurrency(invoice.hst_amount), totalsX + totalsW - 90, y + 36);
+    doc.rect(totalsX, y + 30, totalsW, 30).fill(WHITE);
+    doc.fillColor('#000000').font('Helvetica').fontSize(13)
+      .text('HST (13%)', totalsX + 10, y + 39)
+      .text(formatCurrency(invoice.hst_amount), totalsX + totalsW - 95, y + 39);
 
-    doc.rect(totalsX, y + 56, totalsW, 34).fill(NAVY);
-    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(14)
-      .text('TOTAL DUE', totalsX + 10, y + 65)
-      .text(formatCurrency(invoice.total_due), totalsX + totalsW - 100, y + 65);
+    doc.rect(totalsX, y + 60, totalsW, 38).fill(NAVY);
+    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(16)
+      .text('TOTAL DUE', totalsX + 10, y + 70)
+      .text(formatCurrency(invoice.total_due), totalsX + totalsW - 110, y + 70);
 
     // HST number and statutory note (left of totals)
-    doc.fillColor(NAVY).font('Helvetica').fontSize(10)
-      .text('HST# 824640858RT0001', 40, y + 8);
+    doc.fillColor(NAVY).font('Helvetica').fontSize(11)
+      .text('HST# 824640858RT0001', 40, y + 9);
 
     if (lineItems.some(i => i.is_statutory)) {
-      doc.fillColor('#7B2D00').font('Helvetica-Oblique').fontSize(10)
-        .text('* Statutory holiday shifts billed at double rate.', 40, y + 28);
+      doc.fillColor('#7B2D00').font('Helvetica-Oblique').fontSize(11)
+        .text('* Statutory holiday shifts billed at double rate.', 40, y + 32);
     }
 
-    y += 105;
+    y += 115;
 
     // Comments
-    doc.fillColor(GRAY).font('Helvetica-Oblique').fontSize(11)
+    doc.fillColor(GRAY).font('Helvetica-Oblique').fontSize(12)
       .text('"Thank you for your business."', 40, y);
 
-    // Signature line
-    y += 32;
-    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(10).text('Authorized Signature:', 40, y);
-    doc.rect(190, y + 18, 180, 1).fill(NAVY);
-    doc.fillColor(GRAY).font('Helvetica').fontSize(10).text('CHAMP Health Care Services', 190, y + 24);
+    // Signature block
+    y += 36;
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(11).text('Authorized Signature:', 40, y);
+
+    const sigExists = fs.existsSync(SIGNATURE_PATH);
+    if (sigExists) {
+      doc.image(SIGNATURE_PATH, 40, y + 10, { width: 200, height: 80 });
+      y += 100;
+    } else {
+      doc.rect(40, y + 14, 200, 60).stroke(LIGHT_BLUE);
+      y += 85;
+    }
+    doc.moveTo(40, y).lineTo(240, y).lineWidth(1).stroke(NAVY);
+    doc.fillColor(GRAY).font('Helvetica').fontSize(11).text('CHAMP Health Care Services', 40, y + 6);
 
     // Footer
     const footerY = doc.page.height - 52;
     doc.rect(40, footerY - 5, pageWidth, 1).fill(LIGHT_BLUE);
-    doc.fillColor(GRAY).font('Helvetica').fontSize(10)
+    doc.fillColor(GRAY).font('Helvetica').fontSize(11)
       .text('920 Lesage Way Orleans, Ontario K1W 0N3  |  Tel: 613 824-5065  |  Fax: 613 366-3271  |  champottawacsi@gmail.com',
         40, footerY + 5, { align: 'center', width: pageWidth });
 

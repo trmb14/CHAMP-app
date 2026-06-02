@@ -45,21 +45,41 @@ router.get('/admin', requireAdmin, async (req, res, next) => {
       .orderBy('shifts.created_at', 'desc')
       .limit(10);
 
+    // All assigned shifts this week
     const weekShifts = await db('shifts')
       .join('clients', 'shifts.client_id', 'clients.id')
-      .select('clients.name as client_name', 'clients.abbreviation', 'shifts.position')
+      .select('clients.name as client_name', 'clients.abbreviation', 'shifts.position', 'shifts.status')
       .where('shifts.shift_date', '>=', weekStart)
       .where('shifts.shift_date', '<=', weekEnd);
 
+    // Unassigned (available) shifts this week — separate query to avoid null employee_id join issue
+    const availableShifts = await db('shifts')
+      .join('clients', 'shifts.client_id', 'clients.id')
+      .select('clients.name as client_name', 'clients.abbreviation', 'shifts.position')
+      .where('shifts.shift_date', '>=', weekStart)
+      .where('shifts.shift_date', '<=', weekEnd)
+      .whereNull('shifts.employee_id');
+
     const clientMap = {};
-    for (const s of weekShifts) {
+    const allWeekShifts = [...weekShifts, ...availableShifts.map(s => ({ ...s, status: 'available' }))];
+
+    // Deduplicate: weekShifts may already include unassigned rows if shim handles it; use a Set on identity
+    const seen = new Set();
+    for (const s of allWeekShifts) {
+      const key = `${s.abbreviation}|${s.position}|${s.status}`;
+      if (seen.has(key)) continue;
+      // Only deduplicate available duplicates (assigned shifts from weekShifts already have employee_id)
+      if (s.status === 'available') seen.add(key);
+
       if (!clientMap[s.abbreviation]) {
-        clientMap[s.abbreviation] = { name: s.client_name, abbreviation: s.abbreviation, count: 0, positions: [] };
+        clientMap[s.abbreviation] = { name: s.client_name, abbreviation: s.abbreviation, count: 0, positions: [], statuses: {} };
       }
       clientMap[s.abbreviation].count++;
       if (!clientMap[s.abbreviation].positions.includes(s.position)) {
         clientMap[s.abbreviation].positions.push(s.position);
       }
+      const st = s.status || 'pending';
+      clientMap[s.abbreviation].statuses[st] = (clientMap[s.abbreviation].statuses[st] || 0) + 1;
     }
     const week_clients = Object.values(clientMap).sort((a, b) => b.count - a.count);
 

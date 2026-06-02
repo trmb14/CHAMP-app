@@ -3,6 +3,8 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, Linking, ActivityIndicator
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -18,6 +20,7 @@ export default function ClientInvoiceDetailScreen() {
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => { load(); }, [invoiceId]);
 
@@ -37,15 +40,30 @@ export default function ClientInvoiceDetailScreen() {
       Alert.alert('No PDF', 'Invoice PDF is not ready yet.');
       return;
     }
-    const billingEmail = invoice.billing_email || '';
-    const subject = encodeURIComponent(`Invoice ${invoice.invoice_number}`);
-    const body = encodeURIComponent(`Please find attached invoice ${invoice.invoice_number}.\n\nView PDF: ${invoice.pdf_url}`);
-    const to = encodeURIComponent(billingEmail);
-    const mailto = `mailto:${to}?subject=${subject}&body=${body}`;
+    setSharing(true);
     try {
-      await Linking.openURL(mailto);
-    } catch {
-      Alert.alert('Error', 'Could not open mail app.');
+      const filename = `${invoice.invoice_number || invoiceId}.pdf`;
+      const localUri = FileSystem.cacheDirectory + filename;
+      if (invoice.pdf_url.startsWith('data:')) {
+        const base64 = invoice.pdf_url.split(',')[1];
+        await FileSystem.writeAsStringAsync(localUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      } else {
+        await FileSystem.downloadAsync(invoice.pdf_url, localUri);
+      }
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(localUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Email Invoice ${invoice.invoice_number}`,
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Not Available', 'Sharing is not available on this device.');
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setSharing(false);
     }
   }
 
@@ -172,11 +190,18 @@ export default function ClientInvoiceDetailScreen() {
           )}
           {invoice.pdf_url && (
             <TouchableOpacity
-              style={[styles.actionBtn, styles.emailBtn]}
+              style={[styles.actionBtn, styles.emailBtn, sharing && styles.actionBtnDisabled]}
               onPress={handleEmailInvoice}
+              disabled={sharing}
             >
-              <Ionicons name="mail-outline" size={18} color={COLORS.navy} />
-              <Text style={[styles.actionBtnText, { color: COLORS.navy }]}>Email Invoice</Text>
+              {sharing ? (
+                <ActivityIndicator size="small" color={COLORS.navy} />
+              ) : (
+                <>
+                  <Ionicons name="mail-outline" size={18} color={COLORS.navy} />
+                  <Text style={[styles.actionBtnText, { color: COLORS.navy }]}>Email Invoice</Text>
+                </>
+              )}
             </TouchableOpacity>
           )}
           {canMarkPaid && (

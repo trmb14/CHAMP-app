@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Alert, Animated
+  RefreshControl, Alert, Animated, Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,16 +23,14 @@ function computeNotifications(data) {
   const alerts = [];
   if (!data) return alerts;
 
-  // Pay period closing in ≤2 days
   if (data.pay_period?.end_date) {
     const endDate = new Date(data.pay_period.end_date + 'T00:00:00');
     const daysLeft = Math.ceil((endDate - new Date()) / 86400000);
     if (daysLeft >= 0 && daysLeft <= 2) {
-      alerts.push({ id: 'period', icon: 'time-outline', color: '#E67E22', text: `Pay period closes in ${daysLeft === 0 ? 'today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'}`}` });
+      alerts.push({ id: 'period', icon: 'time-outline', color: '#E67E22', text: `Pay period closes ${daysLeft === 0 ? 'today' : `in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`}` });
     }
   }
 
-  // Pending shifts older than 3 days
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 3);
   const oldPending = (data.recent_shifts || []).filter(s => s.status === 'pending' && new Date(s.shift_date) < cutoff);
@@ -51,7 +49,8 @@ export default function AdminDashboardScreen() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [dismissedAlerts, setDismissedAlerts] = useState(new Set());
+  const [readIds, setReadIds] = useState(new Set());
+  const [notifModalVisible, setNotifModalVisible] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => { load(); }, []);
@@ -86,6 +85,9 @@ export default function AdminDashboardScreen() {
     </SafeAreaView>
   );
 
+  const allNotifications = computeNotifications(data);
+  const unreadNotifications = allNotifications.filter(n => !readIds.has(n.id));
+
   const stats = [
     { label: 'Shifts This Week', value: data?.shifts_this_week ?? 0, icon: 'calendar', color: colors.navy },
     { label: 'Pending Invoices', value: data?.pending_invoices ?? 0, icon: 'document-text', color: colors.warning },
@@ -101,10 +103,59 @@ export default function AdminDashboardScreen() {
   ];
 
   const weekClients = data?.week_clients || [];
-  const notifications = computeNotifications(data).filter(n => !dismissedAlerts.has(n.id));
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.navy }]} edges={['top']}>
+      {/* Notification Modal */}
+      <Modal visible={notifModalVisible} transparent animationType="fade">
+        <TouchableOpacity style={styles.notifOverlay} activeOpacity={1} onPress={() => setNotifModalVisible(false)}>
+          <TouchableOpacity style={[styles.notifPanel, { backgroundColor: colors.card || colors.white }]} activeOpacity={1}>
+            <View style={styles.notifPanelHeader}>
+              <Text style={[styles.notifPanelTitle, { color: colors.text }]}>Notifications</Text>
+              <View style={styles.notifPanelActions}>
+                {unreadNotifications.length > 0 && (
+                  <TouchableOpacity onPress={() => setReadIds(new Set(allNotifications.map(n => n.id)))}>
+                    <Text style={styles.markAllText}>Mark all read</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setNotifModalVisible(false)} style={{ marginLeft: 16 }}>
+                  <Ionicons name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {allNotifications.length === 0 ? (
+              <View style={styles.notifEmpty}>
+                <Ionicons name="notifications-off-outline" size={36} color={colors.border} />
+                <Text style={[styles.notifEmptyText, { color: colors.textSecondary }]}>No notifications</Text>
+              </View>
+            ) : (
+              allNotifications.map(notif => {
+                const isRead = readIds.has(notif.id);
+                return (
+                  <View key={notif.id} style={[styles.notifCard, isRead && styles.notifCardRead, { borderLeftColor: notif.color }]}>
+                    <View style={[styles.notifCardIcon, { backgroundColor: notif.color + '20' }]}>
+                      <Ionicons name={notif.icon} size={18} color={isRead ? colors.textSecondary : notif.color} />
+                    </View>
+                    <Text style={[styles.notifCardText, { color: isRead ? colors.textSecondary : colors.text }]} numberOfLines={3}>
+                      {notif.text}
+                    </Text>
+                    {!isRead && (
+                      <TouchableOpacity
+                        style={[styles.markReadBtn, { borderColor: notif.color }]}
+                        onPress={() => setReadIds(prev => new Set([...prev, notif.id]))}
+                      >
+                        <Text style={[styles.markReadBtnText, { color: notif.color }]}>Done</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <ScrollView
         style={[styles.scroll, { backgroundColor: colors.lightGray }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.navy} />}
@@ -117,18 +168,11 @@ export default function AdminDashboardScreen() {
             <Text style={styles.name}>{user?.name?.split(' ')[0]} 👋</Text>
           </View>
           <View style={styles.headerRight}>
-            {/* Notification Bell */}
-            <TouchableOpacity style={styles.bellBtn} onPress={() => {
-              if (notifications.length === 0) {
-                Alert.alert('Notifications', 'No new notifications.');
-              } else {
-                Alert.alert('Notifications', notifications.map(n => n.text).join('\n\n'));
-              }
-            }}>
+            <TouchableOpacity style={styles.bellBtn} onPress={() => setNotifModalVisible(true)}>
               <Ionicons name="notifications-outline" size={22} color={COLORS.white} />
-              {notifications.length > 0 && (
+              {unreadNotifications.length > 0 && (
                 <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>{notifications.length}</Text>
+                  <Text style={styles.bellBadgeText}>{unreadNotifications.length}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -155,17 +199,6 @@ export default function AdminDashboardScreen() {
             <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.7)" />
           </TouchableOpacity>
         )}
-
-        {/* Notification banners */}
-        {notifications.map(notif => (
-          <View key={notif.id} style={[styles.notifBanner, { backgroundColor: notif.color + '20', borderLeftColor: notif.color }]}>
-            <Ionicons name={notif.icon} size={16} color={notif.color} />
-            <Text style={[styles.notifText, { color: notif.color }]}>{notif.text}</Text>
-            <TouchableOpacity onPress={() => setDismissedAlerts(prev => new Set([...prev, notif.id]))}>
-              <Ionicons name="close" size={16} color={notif.color} />
-            </TouchableOpacity>
-          </View>
-        ))}
 
         {/* Pay period banner */}
         {data?.pay_period && (
@@ -221,6 +254,10 @@ export default function AdminDashboardScreen() {
                   ? colors.clients?.[client.abbreviation] || colors.card
                   : COLORS.clients?.[client.abbreviation] || COLORS.lightBlue;
                 const dotColor = CLIENT_DOT[client.abbreviation] || colors.navy;
+                const statuses = client.statuses || {};
+                const statusLine = Object.entries(statuses)
+                  .map(([s, n]) => `${n} ${s}`)
+                  .join(' · ');
                 return (
                   <View key={client.abbreviation} style={[styles.glanceCard, { backgroundColor: bg }, SHADOWS.card]}>
                     <View style={[styles.glanceDot, { backgroundColor: dotColor }]} />
@@ -229,6 +266,9 @@ export default function AdminDashboardScreen() {
                       <Text style={[styles.glanceDetail, { color: colors.textSecondary }]}>
                         {client.positions.join(', ')}
                       </Text>
+                      {statusLine ? (
+                        <Text style={[styles.glanceStatus, { color: colors.textSecondary }]}>{statusLine}</Text>
+                      ) : null}
                     </View>
                     <View style={[styles.glanceBadge, { backgroundColor: dotColor }]}>
                       <Text style={styles.glanceCount}>{client.count}</Text>
@@ -290,136 +330,79 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   bellBtn: { position: 'relative', padding: 2 },
   bellBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: COLORS.error,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 3,
+    position: 'absolute', top: -2, right: -2,
+    backgroundColor: COLORS.error, borderRadius: 8,
+    minWidth: 16, height: 16,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
   },
   bellBadgeText: { color: COLORS.white, fontSize: 9, fontWeight: '800' },
-  notifBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderLeftWidth: 3,
-    gap: 8,
-  },
-  notifText: { flex: 1, fontSize: 13, fontWeight: '500' },
   periodBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 6,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 8, gap: 6,
   },
   periodText: { fontSize: 13, fontWeight: '500' },
   content: { padding: 16 },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
-  },
-  statCard: {
-    width: '47.5%',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'flex-start',
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  statCard: { width: '47.5%', borderRadius: 12, padding: 16, alignItems: 'flex-start' },
+  statIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   statValue: { fontSize: 22, fontWeight: '700', marginBottom: 2 },
   statLabel: { fontSize: 12, fontWeight: '500' },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12, marginTop: 4 },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
-  },
-  actionBtn: {
-    width: '47.5%',
-    borderWidth: 1.5,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+  actionBtn: { width: '47.5%', borderWidth: 1.5, borderRadius: 12, padding: 16, alignItems: 'center', gap: 8 },
+  actionIcon: { width: 46, height: 46, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   actionLabel: { fontSize: 13, fontWeight: '600' },
-  glanceCard: {
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    marginBottom: 8,
-  },
-  glanceDot: {
-    width: 4,
-    height: 40,
-    borderRadius: 2,
-    marginRight: 12,
-  },
+  glanceCard: { borderRadius: 12, flexDirection: 'row', alignItems: 'center', padding: 12, marginBottom: 8 },
+  glanceDot: { width: 4, height: 44, borderRadius: 2, marginRight: 12 },
   glanceInfo: { flex: 1 },
   glanceName: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
   glanceDetail: { fontSize: 12 },
-  glanceBadge: {
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    minWidth: 44,
-  },
+  glanceStatus: { fontSize: 11, marginTop: 2 },
+  glanceBadge: { alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, minWidth: 44 },
   glanceCount: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
   glanceCountLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: '600' },
-  activityCard: {
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    padding: 14,
-    marginBottom: 8,
-  },
+  activityCard: { borderRadius: 12, borderLeftWidth: 4, padding: 14, marginBottom: 8 },
   activityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   activityLeft: { flex: 1, marginRight: 8 },
   activityEmployee: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
   activityDetail: { fontSize: 12 },
-  emptyCard: {
-    borderRadius: 12,
-    padding: 32,
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
+  emptyCard: { borderRadius: 12, padding: 32, alignItems: 'center', gap: 8, marginBottom: 8 },
   emptyText: { fontSize: 14 },
   pendingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E67E22',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#E67E22', paddingHorizontal: 16, paddingVertical: 10, gap: 8,
   },
-  pendingBannerText: {
-    flex: 1,
-    color: COLORS.white,
-    fontSize: 13,
-    fontWeight: '600',
+  pendingBannerText: { flex: 1, color: COLORS.white, fontSize: 13, fontWeight: '600' },
+  // Notification modal
+  notifOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-start', alignItems: 'flex-end',
+    paddingTop: 90, paddingRight: 16,
   },
+  notifPanel: {
+    width: 320, borderRadius: 16, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25, shadowRadius: 16, elevation: 12,
+  },
+  notifPanelHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  notifPanelTitle: { fontSize: 16, fontWeight: '700' },
+  notifPanelActions: { flexDirection: 'row', alignItems: 'center' },
+  markAllText: { fontSize: 13, color: COLORS.navy, fontWeight: '600' },
+  notifEmpty: { alignItems: 'center', paddingVertical: 32, gap: 10 },
+  notifEmptyText: { fontSize: 14 },
+  notifCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    borderLeftWidth: 3,
+  },
+  notifCardRead: { opacity: 0.45 },
+  notifCardIcon: { width: 34, height: 34, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+  notifCardText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  markReadBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  markReadBtnText: { fontSize: 11, fontWeight: '700' },
 });
