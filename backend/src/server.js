@@ -13,6 +13,7 @@ const invoiceRoutes = require('./routes/invoices');
 const payPeriodRoutes = require('./routes/payPeriods');
 const notificationRoutes = require('./routes/notifications');
 const dashboardRoutes = require('./routes/dashboard');
+const shiftRequestRoutes = require('./routes/shiftRequests');
 
 const { errorHandler } = require('./middleware/errorHandler');
 
@@ -39,6 +40,7 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/pay-periods', payPeriodRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/shift-requests', shiftRequestRoutes);
 
 app.use(errorHandler);
 

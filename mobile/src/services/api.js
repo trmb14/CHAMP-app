@@ -68,6 +68,14 @@ export const shiftsAPI = {
   confirm: (id) => api.patch(`/shifts/${id}/confirm`),
   available: () => api.get('/shifts/available'),
   claim: (id) => api.post(`/shifts/${id}/claim`),
+  clientSchedule: () => api.get('/shifts/client-schedule'),
+};
+
+// Shift Requests (client portal)
+export const shiftRequestsAPI = {
+  list: () => api.get('/shift-requests'),
+  create: (data) => api.post('/shift-requests', data),
+  updateStatus: (id, status) => api.patch(`/shift-requests/${id}/status`, { status }),
 };
 
 // Availability

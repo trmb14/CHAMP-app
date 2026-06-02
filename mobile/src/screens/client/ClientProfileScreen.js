@@ -1,12 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { dashboardAPI } from '../../services/api';
 import { COLORS, SHADOWS } from '../../utils/colors';
 
 export default function ClientProfileScreen() {
   const { user, logout } = useAuth();
+  const [facilityName, setFacilityName] = useState(user?.client_facility || '—');
+  const [facilityAddress, setFacilityAddress] = useState(null);
+
+  useEffect(() => {
+    dashboardAPI.client()
+      .then(data => {
+        if (data?.client?.name) setFacilityName(data.client.name);
+        if (data?.client?.address) {
+          const c = data.client;
+          setFacilityAddress(`${c.address}, ${c.city}, ${c.province}`);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
@@ -15,9 +30,10 @@ export default function ClientProfileScreen() {
   const rows = [
     { label: 'Name', value: user?.name, icon: 'person-outline' },
     { label: 'Email', value: user?.email, icon: 'mail-outline' },
-    { label: 'Facility', value: user?.client_facility || '—', icon: 'business-outline' },
+    { label: 'Facility', value: facilityName, icon: 'business-outline' },
+    { label: 'Address', value: facilityAddress, icon: 'location-outline', hide: !facilityAddress },
     { label: 'Role', value: 'Client Facility', icon: 'shield-outline' },
-  ];
+  ].filter(r => !r.hide);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -32,7 +48,7 @@ export default function ClientProfileScreen() {
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <Text style={styles.avatarName}>{user?.name}</Text>
-          <Text style={styles.avatarFacility}>{user?.client_facility}</Text>
+          <Text style={styles.avatarFacility}>{facilityName}</Text>
         </View>
 
         {/* Info rows */}
@@ -100,7 +116,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: COLORS.white, fontSize: 28, fontWeight: '700' },
   avatarName: { fontSize: 20, fontWeight: '700', color: COLORS.navy },
-  avatarFacility: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4, textAlign: 'center' },
+  avatarFacility: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4, textAlign: 'center', paddingHorizontal: 32 },
   infoCard: {
     backgroundColor: COLORS.white,
     marginHorizontal: 16,

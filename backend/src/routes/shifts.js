@@ -91,6 +91,35 @@ router.post('/:id/claim', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Client-facing schedule: upcoming assigned shifts for their facility
+router.get('/client-schedule', async (req, res, next) => {
+  try {
+    if (req.user.role !== 'client') return res.status(403).json({ error: 'Access denied' });
+    const client = req.user.client_facility
+      ? await db('clients').where({ name: req.user.client_facility }).first()
+      : null;
+    if (!client) return res.json([]);
+    const today = new Date().toISOString().split('T')[0];
+    const shifts = await db('shifts')
+      .join('users', 'shifts.employee_id', 'users.id')
+      .join('clients', 'shifts.client_id', 'clients.id')
+      .select(
+        'shifts.id', 'shifts.shift_date', 'shifts.day_of_week',
+        'shifts.time_in', 'shifts.time_out', 'shifts.invoice_hours',
+        'shifts.position', 'shifts.status', 'shifts.notes',
+        'users.name as employee_name',
+        'clients.name as client_name'
+      )
+      .where('shifts.client_id', client.id)
+      .where('shifts.shift_date', '>=', today)
+      .whereIn('shifts.status', ['pending', 'approved', 'confirmed', 'invoiced'])
+      .orderBy('shifts.shift_date')
+      .orderBy('shifts.time_in')
+      .limit(60);
+    res.json(shifts);
+  } catch (err) { next(err); }
+});
+
 router.get('/:id', async (req, res, next) => {
   try {
     const shift = await db('shifts')
