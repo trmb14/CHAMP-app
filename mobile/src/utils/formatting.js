@@ -5,11 +5,11 @@ export function formatCurrency(amount) {
 }
 
 export function formatDate(dateStr, fmt = 'MMM d, yyyy') {
-  if (!dateStr) return '';
+  if (!dateStr || typeof dateStr !== 'string') return '';
   try {
-    return format(typeof dateStr === 'string' ? parseISO(dateStr) : dateStr, fmt);
+    return format(parseISO(dateStr), fmt);
   } catch {
-    return dateStr;
+    return '';
   }
 }
 

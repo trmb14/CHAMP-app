@@ -42,7 +42,7 @@ export default function ClientDashboardScreen() {
     { label: 'Outstanding', value: formatCurrency(data?.outstanding), icon: 'time-outline', color: '#E67E22' },
     { label: 'Paid This Year', value: formatCurrency(data?.paid_this_year), icon: 'checkmark-circle-outline', color: COLORS.green },
     { label: 'Total Invoices', value: data?.total_invoices ?? '—', icon: 'receipt-outline', color: COLORS.navy },
-    { label: 'Last Invoice', value: data?.last_invoice ? formatDate(data.last_invoice, 'MMM d') : '—', icon: 'calendar-outline', color: '#8E44AD' },
+    { label: 'Last Invoice', value: data?.last_invoice?.invoice_date ? formatDate(data.last_invoice.invoice_date, 'MMM d') : '—', icon: 'calendar-outline', color: '#8E44AD' },
   ];
 
   return (
@@ -97,7 +97,7 @@ export default function ClientDashboardScreen() {
                   <Text style={styles.invoiceDate}>{formatDate(inv.invoice_date, 'MMM d, yyyy')}</Text>
                 </View>
                 <View style={styles.invoiceRight}>
-                  <Text style={styles.invoiceAmount}>{formatCurrency(inv.total_amount)}</Text>
+                  <Text style={styles.invoiceAmount}>{formatCurrency(inv.total_due ?? inv.total_amount)}</Text>
                   <StatusBadge status={inv.status} />
                 </View>
               </TouchableOpacity>

@@ -58,7 +58,7 @@ export default function ClientInvoicesScreen() {
     setRefreshing(false);
   }, []);
 
-  const totalShown = filtered.reduce((s, i) => s + parseFloat(i.total_amount || 0), 0);
+  const totalShown = filtered.reduce((s, i) => s + parseFloat(i.total_due ?? i.total_amount ?? 0), 0);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -129,7 +129,7 @@ export default function ClientInvoicesScreen() {
               )}
             </View>
             <View style={styles.cardRight}>
-              <Text style={styles.amount}>{formatCurrency(item.total_amount)}</Text>
+              <Text style={styles.amount}>{formatCurrency(item.total_due ?? item.total_amount)}</Text>
               <StatusBadge status={item.status} />
             </View>
           </TouchableOpacity>
