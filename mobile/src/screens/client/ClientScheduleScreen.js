@@ -1,11 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, Alert, Modal, TextInput, ScrollView, ActivityIndicator,
+  RefreshControl, Alert, Modal, TextInput, ScrollView,
+  ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { shiftsAPI, shiftRequestsAPI } from '../../services/api';
 import { COLORS, SHADOWS } from '../../utils/colors';
 import { formatDate, formatTime } from '../../utils/formatting';
@@ -28,15 +30,36 @@ function StatusPill({ status }) {
   );
 }
 
-const EMPTY_FORM = { requested_date: '', time_in: '', time_out: '', position: 'PSW', notes: '' };
+function makeTomorrow() {
+  const d = new Date(); d.setDate(d.getDate() + 1); return d;
+}
+function makeHour(h) {
+  const d = new Date(); d.setHours(h, 0, 0, 0); return d;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function fmtDateDisplay(d) {
+  return d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+function fmtTimeDisplay(d) {
+  return d.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' });
+}
 
 export default function ClientScheduleScreen() {
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+
+  // Form state
+  const [position, setPosition] = useState('PSW');
+  const [notes, setNotes] = useState('');
+  const [dateObj, setDateObj] = useState(makeTomorrow);
+  const [timeInObj, setTimeInObj] = useState(() => makeHour(7));
+  const [timeOutObj, setTimeOutObj] = useState(() => makeHour(15));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimeInPicker, setShowTimeInPicker] = useState(false);
+  const [showTimeOutPicker, setShowTimeOutPicker] = useState(false);
 
   useFocusEffect(useCallback(() => { load(); }, []));
 
@@ -58,18 +81,33 @@ export default function ClientScheduleScreen() {
   }, []);
 
   function openModal() {
-    setForm(EMPTY_FORM);
+    setDateObj(makeTomorrow());
+    setTimeInObj(makeHour(7));
+    setTimeOutObj(makeHour(15));
+    setPosition('PSW');
+    setNotes('');
+    setShowDatePicker(false);
+    setShowTimeInPicker(false);
+    setShowTimeOutPicker(false);
     setModalVisible(true);
   }
 
+  function togglePicker(which) {
+    setShowDatePicker(which === 'date' ? (v => !v) : false);
+    setShowTimeInPicker(which === 'timeIn' ? (v => !v) : false);
+    setShowTimeOutPicker(which === 'timeOut' ? (v => !v) : false);
+  }
+
   async function handleSubmit() {
-    if (!form.requested_date.trim()) {
-      Alert.alert('Required', 'Please enter a date (YYYY-MM-DD).');
-      return;
-    }
     setSubmitting(true);
     try {
-      await shiftRequestsAPI.create(form);
+      await shiftRequestsAPI.create({
+        requested_date: dateObj.toISOString().split('T')[0],
+        time_in: `${pad(timeInObj.getHours())}:${pad(timeInObj.getMinutes())}`,
+        time_out: `${pad(timeOutObj.getHours())}:${pad(timeOutObj.getMinutes())}`,
+        position,
+        notes,
+      });
       setModalVisible(false);
       Alert.alert('Sent!', 'Your shift request has been submitted to CHAMP.');
     } catch (err) {
@@ -107,7 +145,6 @@ export default function ClientScheduleScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Schedule</Text>
@@ -152,36 +189,102 @@ export default function ClientScheduleScreen() {
           </View>
 
           <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
+
             {/* Date */}
             <Text style={styles.fieldLabel}>Date Needed <Text style={styles.req}>*</Text></Text>
-            <TextInput
-              style={styles.input}
-              value={form.requested_date}
-              onChangeText={v => setForm(f => ({ ...f, requested_date: v }))}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={COLORS.textSecondary}
-              keyboardType="numbers-and-punctuation"
-            />
+            <TouchableOpacity
+              style={styles.pickerRow}
+              onPress={() => togglePicker('date')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="calendar-outline" size={18} color={COLORS.navy} />
+              <Text style={styles.pickerRowText}>{fmtDateDisplay(dateObj)}</Text>
+              <Ionicons name={showDatePicker ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            {showDatePicker && (
+              <View style={styles.pickerWrap}>
+                <DateTimePicker
+                  value={dateObj}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  minimumDate={new Date()}
+                  onChange={(_, date) => {
+                    if (Platform.OS === 'android') setShowDatePicker(false);
+                    if (date) setDateObj(date);
+                  }}
+                  style={styles.picker}
+                />
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.pickerDoneBtn} onPress={() => setShowDatePicker(false)}>
+                    <Text style={styles.pickerDoneText}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
-            {/* Time In */}
+            {/* Start Time */}
             <Text style={styles.fieldLabel}>Start Time</Text>
-            <TextInput
-              style={styles.input}
-              value={form.time_in}
-              onChangeText={v => setForm(f => ({ ...f, time_in: v }))}
-              placeholder="e.g. 07:00"
-              placeholderTextColor={COLORS.textSecondary}
-            />
+            <TouchableOpacity
+              style={styles.pickerRow}
+              onPress={() => togglePicker('timeIn')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="time-outline" size={18} color={COLORS.navy} />
+              <Text style={styles.pickerRowText}>{fmtTimeDisplay(timeInObj)}</Text>
+              <Ionicons name={showTimeInPicker ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            {showTimeInPicker && (
+              <View style={styles.pickerWrap}>
+                <DateTimePicker
+                  value={timeInObj}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  minuteInterval={15}
+                  onChange={(_, time) => {
+                    if (Platform.OS === 'android') setShowTimeInPicker(false);
+                    if (time) setTimeInObj(time);
+                  }}
+                  style={styles.picker}
+                />
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.pickerDoneBtn} onPress={() => setShowTimeInPicker(false)}>
+                    <Text style={styles.pickerDoneText}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
-            {/* Time Out */}
+            {/* End Time */}
             <Text style={styles.fieldLabel}>End Time</Text>
-            <TextInput
-              style={styles.input}
-              value={form.time_out}
-              onChangeText={v => setForm(f => ({ ...f, time_out: v }))}
-              placeholder="e.g. 15:00"
-              placeholderTextColor={COLORS.textSecondary}
-            />
+            <TouchableOpacity
+              style={styles.pickerRow}
+              onPress={() => togglePicker('timeOut')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="time-outline" size={18} color={COLORS.navy} />
+              <Text style={styles.pickerRowText}>{fmtTimeDisplay(timeOutObj)}</Text>
+              <Ionicons name={showTimeOutPicker ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            {showTimeOutPicker && (
+              <View style={styles.pickerWrap}>
+                <DateTimePicker
+                  value={timeOutObj}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  minuteInterval={15}
+                  onChange={(_, time) => {
+                    if (Platform.OS === 'android') setShowTimeOutPicker(false);
+                    if (time) setTimeOutObj(time);
+                  }}
+                  style={styles.picker}
+                />
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity style={styles.pickerDoneBtn} onPress={() => setShowTimeOutPicker(false)}>
+                    <Text style={styles.pickerDoneText}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {/* Position */}
             <Text style={styles.fieldLabel}>Role Needed <Text style={styles.req}>*</Text></Text>
@@ -189,11 +292,11 @@ export default function ClientScheduleScreen() {
               {POSITIONS.map(p => (
                 <TouchableOpacity
                   key={p}
-                  style={[styles.positionOption, form.position === p && styles.positionOptionActive]}
-                  onPress={() => setForm(f => ({ ...f, position: p }))}
+                  style={[styles.positionOption, position === p && styles.positionOptionActive]}
+                  onPress={() => setPosition(p)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.positionOptionText, form.position === p && styles.positionOptionTextActive]}>
+                  <Text style={[styles.positionOptionText, position === p && styles.positionOptionTextActive]}>
                     {p}
                   </Text>
                 </TouchableOpacity>
@@ -204,8 +307,8 @@ export default function ClientScheduleScreen() {
             <Text style={styles.fieldLabel}>Notes</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              value={form.notes}
-              onChangeText={v => setForm(f => ({ ...f, notes: v }))}
+              value={notes}
+              onChangeText={setNotes}
               placeholder="Any additional details or instructions…"
               placeholderTextColor={COLORS.textSecondary}
               multiline
@@ -302,6 +405,38 @@ const styles = StyleSheet.create({
   modalScroll: { flex: 1, paddingHorizontal: 20 },
   fieldLabel: { fontSize: 13, fontWeight: '700', color: COLORS.navy, marginTop: 20, marginBottom: 6 },
   req: { color: COLORS.error },
+  // Picker trigger row
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  pickerRowText: { flex: 1, fontSize: 15, color: COLORS.text, fontWeight: '500' },
+  // Picker container (inline spinner + done button)
+  pickerWrap: {
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  picker: { height: 150 },
+  pickerDoneBtn: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  pickerDoneText: { color: COLORS.navy, fontSize: 15, fontWeight: '700' },
+  // Notes input
   input: {
     backgroundColor: COLORS.lightGray,
     borderRadius: 10,

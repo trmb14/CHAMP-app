@@ -54,9 +54,9 @@ export default function ClientDashboardScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1, marginRight: 16 }}>
             <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.facilityName} numberOfLines={1}>
+            <Text style={styles.facilityName} numberOfLines={2}>
               {user?.client_facility || user?.name}
             </Text>
           </View>
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   greeting: { color: '#A8C4E0', fontSize: 13 },
-  facilityName: { color: COLORS.white, fontSize: 20, fontWeight: '700', marginTop: 2, maxWidth: 260 },
+  facilityName: { color: COLORS.white, fontSize: 18, fontWeight: '700', marginTop: 2 },
   content: { padding: 16 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   statCard: {
