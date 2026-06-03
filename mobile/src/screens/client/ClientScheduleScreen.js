@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  pickerRowText: { flex: 1, fontSize: 15, color: COLORS.text, fontWeight: '500' },
+  pickerRowText: { flex: 1, fontSize: 15, color: '#111111', fontWeight: '600' },
   // Picker container (inline spinner + done button)
   pickerWrap: {
     backgroundColor: COLORS.lightGray,
