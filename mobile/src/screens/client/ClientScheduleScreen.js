@@ -37,11 +37,17 @@ function makeHour(h) {
   const d = new Date(); d.setHours(h, 0, 0, 0); return d;
 }
 function pad(n) { return String(n).padStart(2, '0'); }
+const DAYS_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 function fmtDateDisplay(d) {
-  return d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  return `${DAYS_SHORT[d.getDay()]}, ${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 function fmtTimeDisplay(d) {
-  return d.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' });
+  const h = d.getHours(), m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
 export default function ClientScheduleScreen() {
