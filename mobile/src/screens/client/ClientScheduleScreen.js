@@ -12,7 +12,7 @@ import { shiftsAPI, shiftRequestsAPI } from '../../services/api';
 import { COLORS, SHADOWS } from '../../utils/colors';
 import { formatDate, formatTime } from '../../utils/formatting';
 
-const POSITIONS = ['PSW', 'UCP'];
+const POSITIONS = ['PSW', 'UCP', 'RPN', 'RN', 'HCA', 'Companion Care'];
 
 const STATUS_COLORS = {
   pending:   { bg: '#FEF3C7', text: '#B45309' },
@@ -214,6 +214,7 @@ export default function ClientScheduleScreen() {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   minimumDate={new Date()}
+                  textColor="#111111"
                   onChange={(_, date) => {
                     if (Platform.OS === 'android') setShowDatePicker(false);
                     if (date) setDateObj(date);
@@ -246,6 +247,7 @@ export default function ClientScheduleScreen() {
                   mode="time"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   minuteInterval={15}
+                  textColor="#111111"
                   onChange={(_, time) => {
                     if (Platform.OS === 'android') setShowTimeInPicker(false);
                     if (time) setTimeInObj(time);
@@ -278,6 +280,7 @@ export default function ClientScheduleScreen() {
                   mode="time"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   minuteInterval={15}
+                  textColor="#111111"
                   onChange={(_, time) => {
                     if (Platform.OS === 'android') setShowTimeOutPicker(false);
                     if (time) setTimeOutObj(time);
@@ -454,10 +457,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   textArea: { height: 100, textAlignVertical: 'top' },
-  positionRow: { flexDirection: 'row', gap: 10 },
+  positionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   positionOption: {
-    flex: 1,
-    paddingVertical: 12,
+    width: '31%',
+    paddingVertical: 11,
     borderRadius: 10,
     borderWidth: 2,
     borderColor: COLORS.border,
