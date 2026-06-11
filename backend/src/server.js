@@ -16,6 +16,8 @@ const dashboardRoutes = require('./routes/dashboard');
 const shiftRequestRoutes = require('./routes/shiftRequests');
 
 const { errorHandler } = require('./middleware/errorHandler');
+const schedule = require('node-schedule');
+const db = require('./config/database');
 
 const app = express();
 
@@ -43,6 +45,16 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/shift-requests', shiftRequestRoutes);
 
 app.use(errorHandler);
+
+// Keep Supabase project active — runs every 5 days at 03:00
+schedule.scheduleJob('0 3 */5 * *', async () => {
+  try {
+    await db('users').select('id').limit(1);
+    console.log('[keep-alive] Supabase ping OK');
+  } catch (err) {
+    console.error('[keep-alive] Supabase ping failed:', err.message);
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
